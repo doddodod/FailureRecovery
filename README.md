@@ -1,14 +1,16 @@
 # LIBERO-Long dynamics latent baseline
 
-本仓库包含两部分：LIBERO-Long rollout 数据准备，以及 commit `91c3974`
-提交的基础 variable-horizon dynamics latent 训练框架。
+本仓库包含两部分：
+main: 基础实验 - 数据源和dynamics latent基础框架
+模型v1: dynamics latent的模型和训练代码
 
-## 实验数据（实际使用）
+## 实验数据
 
-本实验实际使用的数据是 NVIDIA
+本实验实际使用的数据是
+1. NVIDIA
 [`LIBERO-Cosmos-Policy`](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy)
 数据集的 [`all_episodes`](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy/tree/main/all_episodes)
-目录中，**文件名包含 `suite=libero_10` 的全部 rollout**。`libero_10` 即
+2. **文件名包含 `suite=libero_10` 的全部 rollout**。`libero_10` 即
 LIBERO-Long；它是文件名中的筛选字段，不是一个名为 `suite=libero_10` 的子目录。
 
 筛选后的数据规模：
@@ -27,8 +29,6 @@ rollout（38 条成功、12 条失败）。集群上的实际数据目录是：
 /inspurfs/group/hexm/embo/foresight_skeleton/horizon_experiment/data_full
 ```
 
-上游许可证为 CC BY 4.0。
-
 每个 HDF5 的关键字段是：
 
 ```text
@@ -41,7 +41,6 @@ attrs.task_description       任务文本
 ```
 
 ### 下载
-
 仓库已保存完整文件清单：
 
 ```text
