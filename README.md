@@ -14,7 +14,7 @@ Robocerebra: 最后一个成功subtask的结束时间视作失败判定时刻。
 
 
 
-FailTime-Long
+FailTime-Long: 标注了精确的失败时刻。
 
 [https://huggingface.co/datasets/ChangUoA/FailTime](https://huggingface.co/datasets/ChangUoA/FailTime)
 
