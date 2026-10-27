@@ -1,74 +1,172 @@
-# Foresight 基础可运行骨架
+# LIBERO-Long dynamics latent baseline
 
-这是论文 *Foresight: Failure Detection for Long-Horizon Robotic Manipulation
-with Action-Conditioned World Model Latents* 的最小工程骨架。它只验证模块边界、
-张量数据流、训练与评估流程，不复现论文实验，也不声称 mock 指标有实验意义。
+本仓库包含两部分：LIBERO-Long rollout 数据准备，以及 commit `91c3974`
+提交的基础 variable-horizon dynamics latent 训练框架。
 
-## 文件树
+## 数据
+
+数据来自 NVIDIA
+[`LIBERO-Cosmos-Policy`](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy)
+的 [`all_episodes`](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy/tree/main/all_episodes)，
+其中 `suite=libero_10` 对应 LIBERO-Long。当前清单包含 10 个 task、每个 task
+50 条 rollout，共 500 个 HDF5，约 4.7 GiB。上游许可证为 CC BY 4.0。
+
+每个 HDF5 的关键字段是：
 
 ```text
-configs/default.yaml
-data/{trajectory_dataset.py,mock_data.py}
-models/{encoder.py,predictor.py,detector.py,foresight.py}
-training/train.py
-evaluation/{eval.py,metrics.py}
-scripts/{run_sanity.sh,train_mock.sh}
-tests/test_sanity.py
-config.py
-requirements.txt
+primary_images_jpeg  [T]     第三人称相机 JPEG bytes
+wrist_images_jpeg    [T]     腕部相机 JPEG bytes
+proprio              [T, 9]  机器人状态
+actions              [T, 7]  该 rollout 实际记录的未来动作
+attrs.success                rollout 成功/失败标签
+attrs.task_description       任务文本
 ```
 
-## 核心数据流
+### 下载
 
-1. `Trajectory` 统一保存 `observations [T,O]`、`actions [T,A]`、
-   `trajectory_label`（失败 1，成功 0）和可选 `step_label [T]`。
-2. `SlidingWindowTrajectoryDataset` 输出
-   `observations [S,C,O]` 与 `actions [S,L,A]`。其中 `C` 是观测上下文长度，
-   `L` 是动作块长度，`S` 是检测器序列长度。
-3. `ObservationEncoder` 只读取观测上下文，产生
-   `z^h [B,S,Z]`，绝不读动作。
-4. `ActionConditionedPredictor` 读取 `z^h` 和动作块，产生
-   `z^p [B,S,Z]`。
-5. `FailureDetector` 默认读取 `z^p`；将
-   `detector.input_path=hidden` 即可走 `z^h` 消融路径。输出逐步 logits
-   `[B,S]`。
-6. 损失可选择逐步标签或轨迹标签。评估先合并重叠窗口的逐步概率，再输出
-   每轨迹的逐步分数、聚合预测、混淆矩阵、每类准确率和 Balanced Accuracy。
+仓库已保存完整文件清单：
 
-## 运行
+```text
+manifest_full.txt    # 全部 500 条 LIBERO-Long rollout
+manifest_task0.txt   # task 0 的 50 条 rollout
+```
+
+下载全量数据：
 
 ```bash
-cd /inspurfs/group/hexm/embo/foresight_skeleton
-source .venv/bin/activate
-pip install -r requirements.txt
-bash scripts/run_sanity.sh
-bash scripts/train_mock.sh
+python download_manifest.py \
+  --manifest manifest_full.txt \
+  --output data/libero_10 \
+  --workers 1
 ```
 
-所有超参位于 `configs/default.yaml`，可重复使用点路径覆盖：
+下载器使用 Hugging Face 镜像，支持已有文件跳过、临时 `.part` 文件和失败重试。
+镜像容易限流，集群 login 节点建议使用 `--workers 1`。当前集群数据目录为：
+
+```text
+/inspurfs/group/hexm/embo/foresight_skeleton/horizon_experiment/data_full
+```
+
+如果需要重新生成 manifest，可从 Hugging Face tree API 取得文件列表，只保留路径中
+同时包含 `suite=libero_10` 和 `.hdf5` 的项目。manifest 每行保存一个仓库相对路径，
+例如：
+
+```text
+all_episodes/episode_data--suite=libero_10--2025_08_03-18_55_47--task=0--ep=1--success=True--regen_demo.hdf5
+```
+
+### HDF5 构建格式
+
+如果从自己的 rollout 构建兼容文件，保持以下 schema：
+
+```python
+import h5py
+import numpy as np
+
+with h5py.File(output_path, "w") as f:
+    f.create_dataset("proprio", data=proprio.astype(np.float32))       # [T, 9]
+    f.create_dataset("actions", data=actions.astype(np.float32))       # [T, 7]
+
+    jpeg_dtype = h5py.vlen_dtype(np.dtype("uint8"))
+    primary = f.create_dataset("primary_images_jpeg", (len(proprio),), dtype=jpeg_dtype)
+    wrist = f.create_dataset("wrist_images_jpeg", (len(proprio),), dtype=jpeg_dtype)
+    for t in range(len(proprio)):
+        primary[t] = np.frombuffer(primary_jpeg_bytes[t], dtype=np.uint8)
+        wrist[t] = np.frombuffer(wrist_jpeg_bytes[t], dtype=np.uint8)
+
+    f.attrs["success"] = bool(success)
+    f.attrs["task_description"] = task_description
+```
+
+要求图像、proprio 和 action 使用同一时间轴，长度均为 `T`。
+
+## 同一 task instance 的成功/失败与 oracle action
+
+配对时至少使用下面的 key：
+
+```text
+(suite, collection_run, task)
+```
+
+当前示例属于同一个 task instance group：
+
+```text
+suite:          libero_10
+collection_run: 2025_08_03-18_55_47
+task:           0
+description:    put both the alphabet soup and the tomato sauce in the basket
+```
+
+示例文件：
+
+```text
+成功/reference:
+episode_data--suite=libero_10--2025_08_03-18_55_47--task=0--ep=1--success=True--regen_demo.hdf5
+
+失败:
+episode_data--suite=libero_10--2025_08_03-18_55_47--task=0--ep=11--success=False--regen_demo.hdf5
+```
+
+这里的 oracle action condition 不是第三个独立文件：
+
+- 成功/reference action 来自成功文件的 `/actions`；
+- 失败 rollout 的 recorded future action 来自失败文件的 `/actions`；
+- 从人工标记的 subtask 边界 `t0` 开始，取 `/actions[t0:t0+delta_t]`。
+
+文件名只能保证同 suite、同采集批次和同 task，不能证明两个 episode 的初始物体位姿
+完全相同。严格的 same-instance 实验还需要人工 subtask 边界，并按边界处的图像、
+proprio 和物体状态进一步匹配。成功和失败样本应对齐到“最后一个成功 subtask 的
+结束状态”，再比较下一 subtask 的成功/失败分支。
+
+## Commit `91c3974`：基础 dynamics latent 训练框架
+
+核心入口是 `train_horizon_failure.py`。当前版本是用于验证数据和训练流程的
+proprio baseline，尚未接入 DINO 图像 embedding。
+
+输入：
+
+```text
+最近 3 步 proprio context + 未来 delta_t 步 recorded/oracle action
+delta_t ∈ {1, 2, 4, 8, 16, 32, 64}
+```
+
+模型：
+
+```text
+proprio context -> MLP observation encoder
+action sequence  -> GRU action encoder
+task/horizon     -> learned embeddings
+concat + MLP     -> 64-D action-conditioned dynamics latent
+```
+
+latent 接两个训练头：
+
+```text
+future head   -> 预测 proprio[t + delta_t]
+failure head  -> 预测 rollout success/failure
+```
+
+训练损失：
+
+```text
+SmoothL1(predicted_future_proprio, target_future_proprio)
++ weighted BCE(failure_logit, rollout_label)
+```
+
+数据按 rollout 划分 train/validation/test，禁止同一 rollout 的滑动窗口跨 split。
+`run_task0_pilot.sbatch` 用 1 张 GPU 跑 task 0；`run_full_4gpu.sbatch` 将三个随机
+seed 和 shuffled-action 对照分配到 4 张独立 GPU，不使用 DDP。
+
+运行 task 0 baseline：
 
 ```bash
-python -m training.train \
-  --config configs/default.yaml \
-  --set detector.input_path=hidden \
-  --set detector.backbone=mlp \
-  --set training.target_level=trajectory
+python train_horizon_failure.py \
+  --data data/libero_10 \
+  --task 0 \
+  --seed 0 \
+  --epochs 40 \
+  --output results/task0_pilot.json
 ```
 
-可切换的检测器包括 `mlp`、`lstm` 和 `transformer`。可通过
-`training.pos_weight` 配置 BCE 正类权重，通过
-`training.balanced_sampler=true` 启用窗口级均衡采样。
-
-## 当前假设与 TODO
-
-- 输入暂定为扁平连续向量；图像、多视角和真实 world-model 编码器留给后续接入。
-- `observation_context_length` 明确定义为 `k+1`；动作记号
-  `a_{t:t+H}` 是否包含 `H+1` 个动作需要对照论文实现，因此直接配置
-  `action_chunk_length`。
-- 无逐步标签时，逐步损失使用轨迹标签广播作为弱监督；也可切换为轨迹级损失。
-- 轨迹分数默认取逐步故障概率最大值；`mean`/`last` 可配置，论文的精确聚合方法
-  待确认。
-- early-detection weighting 目前只有 hook，尚未实现论文特定权重。
-- balanced sampler 当前按滑动窗口的轨迹标签均衡；真实数据的采样单位和划分策略
-  待确认。
-- mock 数据仅用于 forward/backward、路径切换、checkpoint 和评估管线测试。
+这个 commit 的作用是提供可运行的 variable-horizon dynamics latent 基线和
+rollout-level evaluation 管线，不代表最终的 DINO trajectory-context 模型。
