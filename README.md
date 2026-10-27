@@ -18,6 +18,42 @@ FailTime-Long: 标注了精确的失败时刻。
 
 [https://huggingface.co/datasets/ChangUoA/FailTime](https://huggingface.co/datasets/ChangUoA/FailTime)
 
+### FailTime-Long 下载
+
+集群上的数据位置：
+
+```text
+/inspurfs/group/hexm/embo/foresight_skeleton/data/FailTime/failtime_long
+├── episodes/   # 100 条 HDF5 轨迹
+├── tasks/      # 13 个 task XML，含 substages
+└── test.json   # 100 条成功/失败及 failure onset 标注
+```
+
+login 节点不能直接访问 `huggingface.co`，使用 Hugging Face 镜像下载：
+
+```bash
+cd /inspurfs/group/hexm/embo/foresight_skeleton
+
+HF_ENDPOINT=https://hf-mirror.com \
+  huggingface-cli download ChangUoA/FailTime \
+  --repo-type dataset \
+  --include 'failtime_long/*' \
+  --local-dir data/FailTime
+```
+
+命令支持断点续传，重复执行会跳过完整文件。下载完成后检查：
+
+```bash
+find data/FailTime/failtime_long -type f | wc -l
+find data/FailTime/failtime_long/episodes -name '*.hdf5' | wc -l
+du -sh data/FailTime/failtime_long
+```
+
+当前已校验结果为 114 个文件、100 条 HDF5 episode、13 个 task XML、
+100 条 `test.json` 标注，总大小 5.8 GiB。失败标注包含 `verdict`、`onset`、
+`type`、`reason` 和 `avoidance`。实验应在同一 task/substage 内配对成功与失败
+episode，并以 `onset` 作为真实失败边界。
+
 
 
 **对齐点 tf：** 失败轨迹 = 失败判定时刻；成功轨迹 = 成功完成时刻。
