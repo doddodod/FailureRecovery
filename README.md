@@ -16,6 +16,8 @@ main: 基础实验 - 数据源和dynamics latent基础框架
 
 `[LIBERO-Cosmos-Policy](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy)`
 数据集的 `[all_episodes](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy/tree/main/all_episodes)`
+
+
 2. **文件名包含** `suite=libero_10` **的全部 rollout**。`libero_10` 即
 LIBERO-Long；它是文件名中的筛选字段，不是一个名为 `suite=libero_10` 的子目录。
 
