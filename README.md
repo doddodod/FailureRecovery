@@ -3,13 +3,31 @@
 本仓库包含两部分：LIBERO-Long rollout 数据准备，以及 commit `91c3974`
 提交的基础 variable-horizon dynamics latent 训练框架。
 
-## 数据
+## 实验数据（实际使用）
 
-数据来自 NVIDIA
+本实验实际使用的数据是 NVIDIA
 [`LIBERO-Cosmos-Policy`](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy)
-的 [`all_episodes`](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy/tree/main/all_episodes)，
-其中 `suite=libero_10` 对应 LIBERO-Long。当前清单包含 10 个 task、每个 task
-50 条 rollout，共 500 个 HDF5，约 4.7 GiB。上游许可证为 CC BY 4.0。
+数据集的 [`all_episodes`](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy/tree/main/all_episodes)
+目录中，**文件名包含 `suite=libero_10` 的全部 rollout**。`libero_10` 即
+LIBERO-Long；它是文件名中的筛选字段，不是一个名为 `suite=libero_10` 的子目录。
+
+筛选后的数据规模：
+
+```text
+10 个 task × 每个 task 50 条 = 500 条 rollout
+成功：376 条
+失败：124 条
+总大小：约 4.7 GiB
+```
+
+已经完成的 task 0 pilot 也使用这一数据源，具体使用其中 `task=0` 的 50 条
+rollout（38 条成功、12 条失败）。集群上的实际数据目录是：
+
+```text
+/inspurfs/group/hexm/embo/foresight_skeleton/horizon_experiment/data_full
+```
+
+上游许可证为 CC BY 4.0。
 
 每个 HDF5 的关键字段是：
 
@@ -41,11 +59,7 @@ python download_manifest.py \
 ```
 
 下载器使用 Hugging Face 镜像，支持已有文件跳过、临时 `.part` 文件和失败重试。
-镜像容易限流，集群 login 节点建议使用 `--workers 1`。当前集群数据目录为：
-
-```text
-/inspurfs/group/hexm/embo/foresight_skeleton/horizon_experiment/data_full
-```
+镜像容易限流，集群 login 节点建议使用 `--workers 1`。
 
 如果需要重新生成 manifest，可从 Hugging Face tree API 取得文件列表，只保留路径中
 同时包含 `suite=libero_10` 和 `.hdf5` 的项目。manifest 每行保存一个仓库相对路径，
