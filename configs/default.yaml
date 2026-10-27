@@ -1,0 +1,49 @@
+# All architecture/training choices are configurable because several exact paper
+# implementation details are not specified in the task.
+seed: 7
+device: cpu
+
+data:
+  source: mock
+  observation_dim: 12
+  action_dim: 4
+  observation_context_length: 3  # o_{t-k:t}; this equals k + 1
+  action_chunk_length: 4          # TODO(paper): confirm whether H means H or H+1 actions
+  detector_sequence_length: 5
+  window_stride: 1
+  mock_train_trajectories: 12
+  mock_val_trajectories: 6
+  mock_trajectory_length: 18
+  mock_include_step_labels: true
+
+model:
+  latent_dim: 16
+  encoder_hidden_dim: 32
+  predictor_hidden_dim: 32
+  dropout: 0.0
+
+detector:
+  input_path: predicted  # predicted (z^p, main path) or hidden (z^h, ablation)
+  backbone: lstm         # mlp, lstm, transformer
+  hidden_dim: 32
+  num_layers: 1
+  num_heads: 2
+  dropout: 0.0
+  max_sequence_length: 128
+
+training:
+  epochs: 2
+  batch_size: 4
+  learning_rate: 0.001
+  weight_decay: 0.0
+  target_level: step       # step or trajectory
+  trajectory_aggregation: max  # max, mean, last
+  pos_weight: null         # e.g. 2.0; null disables BCE class weighting
+  balanced_sampler: false
+  num_workers: 0
+  checkpoint_path: checkpoints/foresight_mock.pt
+  early_detection_weighting: false  # TODO(paper): hook only in this skeleton
+
+evaluation:
+  threshold: 0.5
+  trajectory_aggregation: max

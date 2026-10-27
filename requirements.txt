@@ -1,0 +1,4 @@
+torch>=1.10
+numpy>=1.21
+PyYAML>=6.0
+pytest>=6.2
