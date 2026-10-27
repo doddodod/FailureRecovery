@@ -1,0 +1,90 @@
+{
+  "experiment": "same_task_prefix_latent_separability",
+  "status": "exploratory_pair_only",
+  "feature_definition": "standardized concat(proprio[9], actions[7])",
+  "latent_definition": "unsupervised PCA(8) fitted jointly on both rollouts",
+  "normalization": "each rollout resampled to 64 progress bins",
+  "warning": "One success/failure pair cannot establish classifier generalization or statistical significance.",
+  "success_rollout": {
+    "path": "data/task0_ep1_success.hdf5",
+    "steps": 388,
+    "success": true,
+    "task_description": "put both the alphabet soup and the tomato sauce in the basket",
+    "sha256": "e1d0c70ac97d648538c0ba7407dda806f002b256f851ca49c56604ef91652a96"
+  },
+  "failure_rollout": {
+    "path": "data/task0_ep11_failure.hdf5",
+    "steps": 285,
+    "success": false,
+    "task_description": "put both the alphabet soup and the tomato sauce in the basket",
+    "sha256": "b687fd2bc39b0b773c4579702e52b706e172fc97495808540098908a0c37f891"
+  },
+  "pca_explained_variance_ratio": [
+    0.2369108820507358,
+    0.2080839680477782,
+    0.15087758800196363,
+    0.09950603161636179,
+    0.0748926104582788,
+    0.05952043609986612,
+    0.04696058121080489,
+    0.0351410264478311
+  ],
+  "prefix_metrics": [
+    {
+      "normalized_steps": 1,
+      "progress_fraction": 0.015625,
+      "mean_aligned_l2": 1.5628624209539825,
+      "last_aligned_l2": 1.5628624209539825,
+      "prefix_mean_l2": 1.5628624209539825,
+      "prefix_mean_cosine_distance": 0.15305462351443255
+    },
+    {
+      "normalized_steps": 2,
+      "progress_fraction": 0.03125,
+      "mean_aligned_l2": 1.7717962952374586,
+      "last_aligned_l2": 1.9807301695209347,
+      "prefix_mean_l2": 1.747082825146946,
+      "prefix_mean_cosine_distance": 0.15726544478446725
+    },
+    {
+      "normalized_steps": 4,
+      "progress_fraction": 0.0625,
+      "mean_aligned_l2": 1.7695879124947516,
+      "last_aligned_l2": 1.801483497137979,
+      "prefix_mean_l2": 1.1071835301447541,
+      "prefix_mean_cosine_distance": 0.071707417515392
+    },
+    {
+      "normalized_steps": 8,
+      "progress_fraction": 0.125,
+      "mean_aligned_l2": 1.663625092858819,
+      "last_aligned_l2": 1.3732702564708312,
+      "prefix_mean_l2": 0.8909661185742426,
+      "prefix_mean_cosine_distance": 0.06143570183152791
+    },
+    {
+      "normalized_steps": 16,
+      "progress_fraction": 0.25,
+      "mean_aligned_l2": 2.7237563345158033,
+      "last_aligned_l2": 5.321857841330612,
+      "prefix_mean_l2": 1.2091863244777172,
+      "prefix_mean_cosine_distance": 0.1490328972335231
+    },
+    {
+      "normalized_steps": 32,
+      "progress_fraction": 0.5,
+      "mean_aligned_l2": 3.5489948738154147,
+      "last_aligned_l2": 2.685905915577665,
+      "prefix_mean_l2": 1.8542461586779204,
+      "prefix_mean_cosine_distance": 0.7804628118188794
+    },
+    {
+      "normalized_steps": 64,
+      "progress_fraction": 1.0,
+      "mean_aligned_l2": 4.5299110826060724,
+      "last_aligned_l2": 7.176341327663229,
+      "prefix_mean_l2": 2.526003887308765,
+      "prefix_mean_cosine_distance": 1.9978505606933687
+    }
+  ]
+}
