@@ -2,23 +2,34 @@
 
 本仓库包含两部分：
 
+## main: 基础实验 - 数据源和dynamics latent基础框架
 
-main: 基础实验 - 数据源和dynamics latent基础框架
+实验描述：
 
+**数据：** 成功轨迹 + 失败轨迹都要，按轨迹分 train/test。
 
-模型v1: dynamics latent的模型和训练代码
-
-## 实验数据
-
-本实验实际使用的数据是
-
-1. NVIDIA
+NVIDIA
 
 `[LIBERO-Cosmos-Policy](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy)`
 数据集的 `[all_episodes](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy/tree/main/all_episodes)`
 
+**对齐点 tf：** 失败轨迹 = 失败判定时刻；成功轨迹 = 成功完成时刻。
 
-2. **文件名包含** `suite=libero_10` **的全部 rollout**。`libero_10` 即
+**取样本：** 每条轨迹只取 tf​ 前 50 步内每个时刻 t。
+
+**每个样本的输入：** 未来第 t+k步的真实信息（低维 state / 冻结 ResNet 图像特征 / context，拼起来）。参考模型：DINOv2、CLIP 文本编码器、one-hot。
+
+**标签：** 这条轨迹失败 = 1，成功 = 0。
+
+**模型：** 逻辑回归，输入未来特征，输出失败概率或分数。
+
+**看：** 扫 *k*=1,2,5,10,15,20,30,40. 失败轨迹平均分 − 成功轨迹平均分。差距随 k 变大 → 值得训 dynamics。
+
+**注意：** 不训 encoder，不训 dynamics，只用现成真实未来特征。
+
+## 模型v1: dynamics latent的模型和训练代码
+
+数据：**文件名包含** `suite=libero_10` **的全部 rollout**。`libero_10` 即
 LIBERO-Long；它是文件名中的筛选字段，不是一个名为 `suite=libero_10` 的子目录。
 
 筛选后的数据规模：
