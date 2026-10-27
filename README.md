@@ -1,16 +1,22 @@
 # LIBERO-Long dynamics latent baseline
 
 本仓库包含两部分：
+
+
 main: 基础实验 - 数据源和dynamics latent基础框架
+
+
 模型v1: dynamics latent的模型和训练代码
 
 ## 实验数据
 
 本实验实际使用的数据是
+
 1. NVIDIA
-[`LIBERO-Cosmos-Policy`](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy)
-数据集的 [`all_episodes`](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy/tree/main/all_episodes)
-2. **文件名包含 `suite=libero_10` 的全部 rollout**。`libero_10` 即
+
+`[LIBERO-Cosmos-Policy](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy)`
+数据集的 `[all_episodes](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy/tree/main/all_episodes)`
+2. **文件名包含** `suite=libero_10` **的全部 rollout**。`libero_10` 即
 LIBERO-Long；它是文件名中的筛选字段，不是一个名为 `suite=libero_10` 的子目录。
 
 筛选后的数据规模：
@@ -40,7 +46,10 @@ attrs.success                rollout 成功/失败标签
 attrs.task_description       任务文本
 ```
 
+
+
 ### 下载
+
 仓库已保存完整文件清单：
 
 ```text
@@ -67,6 +76,8 @@ python download_manifest.py \
 ```text
 all_episodes/episode_data--suite=libero_10--2025_08_03-18_55_47--task=0--ep=1--success=True--regen_demo.hdf5
 ```
+
+
 
 ### HDF5 构建格式
 
