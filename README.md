@@ -32,30 +32,45 @@ the exact source metadata are recorded in `results/results.json`.
 
 ## Experiment
 
-At each timestep the experiment concatenates proprioception and action into a
-16-D feature, standardizes it, and fits an unsupervised 8-D PCA latent over the
-two trajectories. Each rollout is resampled to 64 normalized progress bins.
-Latent separation is measured for prefixes of 1, 2, 4, 8, 16, 32, and 64 bins.
+This version uses the actual modules in `/inspurfs/group/hexm/embo/foresight_skeleton`:
+`ObservationEncoder` produces the observation-only hidden latent `z^h`, and
+`ActionConditionedPredictor` produces `z^p` from `z^h` plus an action chunk.
+There is deliberately no checkpoint and no training. The modules are evaluated
+at 10 fixed random initializations (seeds 0-9), so the plot shows mean ± standard
+deviation rather than relying on one lucky random projection.
+
+Proprioception and actions are standardized jointly across the pair. The default
+repository windows are used (3 observation steps and 4 action steps), and each
+valid-window latent sequence is resampled to 64 normalized progress bins.
+Separation is measured for prefixes of 1, 2, 4, 8, 16, 32, and 64 bins.
 
 Run:
 
 ```bash
-python run_prefix_latent_experiment.py \
+python run_repo_latent_timeline.py \
   --success data/raw/task0_ep1_success.hdf5 \
   --failure data/raw/task0_ep11_failure.hdf5 \
   --output-dir results
 ```
 
-This is a two-rollout exploratory comparison, not a trained failure detector.
-It cannot establish classifier generalization or statistical significance. A
-proper follow-up should use all same-task episodes with rollout-level splits
-and report ROC-AUC and balanced accuracy versus prefix length.
+This is a two-rollout geometric comparison, not a trained failure detector.
+Random untrained latents have no learned failure semantics. The experiment can
+answer whether this particular pair moves farther apart under the repository's
+random feature mapping, but it cannot establish classifier generalization or
+statistical significance.
 
 ## Result from this pair
 
-The mean aligned latent L2 distance was 1.56 at one normalized progress bin,
-2.72 at 16 bins, 3.55 at 32 bins, and 4.53 at the full 64-bin sequence. The
-prefix-mean L2 distance reached 2.53 at 64 bins. The early prefix is not
-monotonic, but both reported L2 summaries separate more strongly after the
-middle of the rollout. See `results/results.json` for exact values and
-`results/prefix_latent_separation.png` for the plot.
+The result was generated on the login node because this small forward-only MLP
+experiment does not require a GPU. For `z^h`, mean aligned L2 rises from
+`0.130 ± 0.028` at 1/64 progress to `0.975 ± 0.111` over all 64 bins; its
+prefix-centroid L2 rises from `0.130 ± 0.028` to `0.624 ± 0.127`. Thus this pair
+does show a strong longer-horizon separation in the observation latent.
+
+For action-conditioned `z^p`, mean aligned L2 is higher at 64 bins than at one
+bin (`0.721 ± 0.027` versus `0.411 ± 0.116`), but it is not monotonic. More
+importantly, prefix-centroid L2 decreases from `0.411 ± 0.116` to
+`0.128 ± 0.034`. The pair therefore does **not** support an unconditional claim
+that every action-conditioned prefix representation becomes more separable as
+the timeline grows. See `results/results.json` for all per-seed and aggregate
+values and `results/prefix_latent_separation.png` for the plot.
