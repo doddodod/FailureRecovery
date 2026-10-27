@@ -1,76 +1,172 @@
-# LIBERO-Long same-task prefix latent experiment
+# LIBERO-Long dynamics latent baseline
 
-This directory contains a small exploratory experiment for the question:
-does a longer observed trajectory prefix make successful and failed rollouts
-more separable in latent space?
+本仓库包含两部分：LIBERO-Long rollout 数据准备，以及 commit `91c3974`
+提交的基础 variable-horizon dynamics latent 训练框架。
 
-## Data source
+## 数据
 
-The two rollouts come from NVIDIA's
+数据来自 NVIDIA
 [`LIBERO-Cosmos-Policy`](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy)
-dataset, directory
-[`all_episodes/`](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy/tree/main/all_episodes).
-LIBERO-Long is named `libero_10` in the files.
+的 [`all_episodes`](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy/tree/main/all_episodes)，
+其中 `suite=libero_10` 对应 LIBERO-Long。当前清单包含 10 个 task、每个 task
+50 条 rollout，共 500 个 HDF5，约 4.7 GiB。上游许可证为 CC BY 4.0。
 
-Both rollouts belong to task 0, “put both the alphabet soup and the tomato
-sauce in the basket,” and the same collection run (`2025_08_03-18_55_47`):
+每个 HDF5 的关键字段是：
 
-- `task0_ep1_success.hdf5`: episode 1, success, 388 steps.
-- `task0_ep11_failure.hdf5`: episode 11, failure, 285 steps.
-
-Exact upstream files:
-
-- [Success episode](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy/blob/main/all_episodes/episode_data--suite%3Dlibero_10--2025_08_03-18_55_47--task%3D0--ep%3D1--success%3DTrue--regen_demo.hdf5)
-- [Failure episode](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy/blob/main/all_episodes/episode_data--suite%3Dlibero_10--2025_08_03-18_55_47--task%3D0--ep%3D11--success%3DFalse--regen_demo.hdf5)
-
-The upstream dataset is released under CC BY 4.0; retain its attribution when
-redistributing these samples.
-
-Each HDF5 contains third-person and wrist JPEG observations, 9-D proprioception,
-7-D actions, the task description, and the success label. SHA-256 checksums and
-the exact source metadata are recorded in `results/results.json`.
-
-## Experiment
-
-This version uses the actual modules in `/inspurfs/group/hexm/embo/foresight_skeleton`:
-`ObservationEncoder` produces the observation-only hidden latent `z^h`, and
-`ActionConditionedPredictor` produces `z^p` from `z^h` plus an action chunk.
-There is deliberately no checkpoint and no training. The modules are evaluated
-at 10 fixed random initializations (seeds 0-9), so the plot shows mean ± standard
-deviation rather than relying on one lucky random projection.
-
-Proprioception and actions are standardized jointly across the pair. The default
-repository windows are used (3 observation steps and 4 action steps), and each
-valid-window latent sequence is resampled to 64 normalized progress bins.
-Separation is measured for prefixes of 1, 2, 4, 8, 16, 32, and 64 bins.
-
-Run:
-
-```bash
-python run_repo_latent_timeline.py \
-  --success data/raw/task0_ep1_success.hdf5 \
-  --failure data/raw/task0_ep11_failure.hdf5 \
-  --output-dir results
+```text
+primary_images_jpeg  [T]     第三人称相机 JPEG bytes
+wrist_images_jpeg    [T]     腕部相机 JPEG bytes
+proprio              [T, 9]  机器人状态
+actions              [T, 7]  该 rollout 实际记录的未来动作
+attrs.success                rollout 成功/失败标签
+attrs.task_description       任务文本
 ```
 
-This is a two-rollout geometric comparison, not a trained failure detector.
-Random untrained latents have no learned failure semantics. The experiment can
-answer whether this particular pair moves farther apart under the repository's
-random feature mapping, but it cannot establish classifier generalization or
-statistical significance.
+### 下载
 
-## Result from this pair
+仓库已保存完整文件清单：
 
-The result was generated on the login node because this small forward-only MLP
-experiment does not require a GPU. For `z^h`, mean aligned L2 rises from
-`0.130 ± 0.028` at 1/64 progress to `0.975 ± 0.111` over all 64 bins; its
-prefix-centroid L2 rises from `0.130 ± 0.028` to `0.624 ± 0.127`. Thus this pair
-does show a strong longer-horizon separation in the observation latent.
+```text
+manifest_full.txt    # 全部 500 条 LIBERO-Long rollout
+manifest_task0.txt   # task 0 的 50 条 rollout
+```
 
-For action-conditioned `z^p`, mean aligned L2 is higher at 64 bins than at one
-bin (`0.721 ± 0.027` versus `0.411 ± 0.116`), but it is not monotonic. More
-importantly, prefix-centroid L2 decreases from `0.411 ± 0.116` to
-`0.128 ± 0.034`. The pair therefore does **not** support an unconditional claim
-that every action-conditioned prefix representation becomes more separable as
-the timeline grows. See `results/results.json` for all per-seed and aggregate
-values and `results/prefix_latent_separation.png` for the plot.
+下载全量数据：
+
+```bash
+python download_manifest.py \
+  --manifest manifest_full.txt \
+  --output data/libero_10 \
+  --workers 1
+```
+
+下载器使用 Hugging Face 镜像，支持已有文件跳过、临时 `.part` 文件和失败重试。
+镜像容易限流，集群 login 节点建议使用 `--workers 1`。当前集群数据目录为：
+
+```text
+/inspurfs/group/hexm/embo/foresight_skeleton/horizon_experiment/data_full
+```
+
+如果需要重新生成 manifest，可从 Hugging Face tree API 取得文件列表，只保留路径中
+同时包含 `suite=libero_10` 和 `.hdf5` 的项目。manifest 每行保存一个仓库相对路径，
+例如：
+
+```text
+all_episodes/episode_data--suite=libero_10--2025_08_03-18_55_47--task=0--ep=1--success=True--regen_demo.hdf5
+```
+
+### HDF5 构建格式
+
+如果从自己的 rollout 构建兼容文件，保持以下 schema：
+
+```python
+import h5py
+import numpy as np
+
+with h5py.File(output_path, "w") as f:
+    f.create_dataset("proprio", data=proprio.astype(np.float32))       # [T, 9]
+    f.create_dataset("actions", data=actions.astype(np.float32))       # [T, 7]
+
+    jpeg_dtype = h5py.vlen_dtype(np.dtype("uint8"))
+    primary = f.create_dataset("primary_images_jpeg", (len(proprio),), dtype=jpeg_dtype)
+    wrist = f.create_dataset("wrist_images_jpeg", (len(proprio),), dtype=jpeg_dtype)
+    for t in range(len(proprio)):
+        primary[t] = np.frombuffer(primary_jpeg_bytes[t], dtype=np.uint8)
+        wrist[t] = np.frombuffer(wrist_jpeg_bytes[t], dtype=np.uint8)
+
+    f.attrs["success"] = bool(success)
+    f.attrs["task_description"] = task_description
+```
+
+要求图像、proprio 和 action 使用同一时间轴，长度均为 `T`。
+
+## 同一 task instance 的成功/失败与 oracle action
+
+配对时至少使用下面的 key：
+
+```text
+(suite, collection_run, task)
+```
+
+当前示例属于同一个 task instance group：
+
+```text
+suite:          libero_10
+collection_run: 2025_08_03-18_55_47
+task:           0
+description:    put both the alphabet soup and the tomato sauce in the basket
+```
+
+示例文件：
+
+```text
+成功/reference:
+episode_data--suite=libero_10--2025_08_03-18_55_47--task=0--ep=1--success=True--regen_demo.hdf5
+
+失败:
+episode_data--suite=libero_10--2025_08_03-18_55_47--task=0--ep=11--success=False--regen_demo.hdf5
+```
+
+这里的 oracle action condition 不是第三个独立文件：
+
+- 成功/reference action 来自成功文件的 `/actions`；
+- 失败 rollout 的 recorded future action 来自失败文件的 `/actions`；
+- 从人工标记的 subtask 边界 `t0` 开始，取 `/actions[t0:t0+delta_t]`。
+
+文件名只能保证同 suite、同采集批次和同 task，不能证明两个 episode 的初始物体位姿
+完全相同。严格的 same-instance 实验还需要人工 subtask 边界，并按边界处的图像、
+proprio 和物体状态进一步匹配。成功和失败样本应对齐到“最后一个成功 subtask 的
+结束状态”，再比较下一 subtask 的成功/失败分支。
+
+## Commit `91c3974`：基础 dynamics latent 训练框架
+
+核心入口是 `train_horizon_failure.py`。当前版本是用于验证数据和训练流程的
+proprio baseline，尚未接入 DINO 图像 embedding。
+
+输入：
+
+```text
+最近 3 步 proprio context + 未来 delta_t 步 recorded/oracle action
+delta_t ∈ {1, 2, 4, 8, 16, 32, 64}
+```
+
+模型：
+
+```text
+proprio context -> MLP observation encoder
+action sequence  -> GRU action encoder
+task/horizon     -> learned embeddings
+concat + MLP     -> 64-D action-conditioned dynamics latent
+```
+
+latent 接两个训练头：
+
+```text
+future head   -> 预测 proprio[t + delta_t]
+failure head  -> 预测 rollout success/failure
+```
+
+训练损失：
+
+```text
+SmoothL1(predicted_future_proprio, target_future_proprio)
++ weighted BCE(failure_logit, rollout_label)
+```
+
+数据按 rollout 划分 train/validation/test，禁止同一 rollout 的滑动窗口跨 split。
+`run_task0_pilot.sbatch` 用 1 张 GPU 跑 task 0；`run_full_4gpu.sbatch` 将三个随机
+seed 和 shuffled-action 对照分配到 4 张独立 GPU，不使用 DDP。
+
+运行 task 0 baseline：
+
+```bash
+python train_horizon_failure.py \
+  --data data/libero_10 \
+  --task 0 \
+  --seed 0 \
+  --epochs 40 \
+  --output results/task0_pilot.json
+```
+
+这个 commit 的作用是提供可运行的 variable-horizon dynamics latent 基线和
+rollout-level evaluation 管线，不代表最终的 DINO trajectory-context 模型。
