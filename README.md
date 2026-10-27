@@ -8,10 +8,17 @@
 
 **数据：** 成功轨迹 + 失败轨迹都要，按轨迹分 train/test。
 
-NVIDIA
 
-`[LIBERO-Cosmos-Policy](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy)`
-数据集的 `[all_episodes](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy/tree/main/all_episodes)`
+
+Robocerebra: 最后一个成功subtask的结束时间视作失败判定时刻。
+
+
+
+FailTime-Long
+
+[https://huggingface.co/datasets/ChangUoA/FailTime](https://huggingface.co/datasets/ChangUoA/FailTime)
+
+
 
 **对齐点 tf：** 失败轨迹 = 失败判定时刻；成功轨迹 = 成功完成时刻。
 
@@ -29,7 +36,17 @@ NVIDIA
 
 ## 模型v1: dynamics latent的模型和训练代码
 
-数据：**文件名包含** `suite=libero_10` **的全部 rollout**。`libero_10` 即
+数据：
+
+
+
+NVIDIA
+
+`[LIBERO-Cosmos-Policy](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy)` 数据集的 `[all_episodes](https://huggingface.co/datasets/nvidia/LIBERO-Cosmos-Policy/tree/main/all_episodes)`
+
+
+
+**文件名包含** `suite=libero_10` **的全部 rollout**。`libero_10` 即
 LIBERO-Long；它是文件名中的筛选字段，不是一个名为 `suite=libero_10` 的子目录。
 
 筛选后的数据规模：
