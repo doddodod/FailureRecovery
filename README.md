@@ -10,7 +10,7 @@
 
 
 
-Robocerebra: 最后一个成功subtask的结束时间视作失败判定时刻。
+Robocerebra: 最后一个成功subtask的结束时间视作失败开始时刻。
 
 
 
